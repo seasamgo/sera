@@ -1,0 +1,32 @@
+Package: sera
+Type: Package
+Title: Infer seqFISH expression patterns using scRNA-seq data
+Version: 0.1.0
+Date: 2019-04-28
+Author: Sam Tracy
+Maintainer: Sam Tracy <stracy@g.harvard.edu>
+Description: Integrate the expression matrices of seqFISH and scRNA-seq data to infer spatial
+    expression patterns in three steps: normalize against sequencing-technology specific 
+    gene expression distribution differences, implement a multi-response LASSO regression for 
+    predictor gene selection and transcriptome-level estimation, determine estimable genes for 
+    the small subset of predictor genes using a local polynomial regression against the penalized 
+    coefficient L1 norm and estimate variation threshold.
+Depends:
+    R (>= 3.4.0)
+Imports:
+    preprocessCore,
+    stats,
+    glmnet,
+    ggplot2
+License: GPL-2 | GPL-3
+LazyData: FALSE
+URL: https://github.com/seasamgo/sera
+BugReports: http://github.com/seasamgo/sera/issues
+RoxygenNote: 6.1.1
+Encoding: UTF-8
+Suggests:
+    knitr,
+    rmarkdown
+VignetteBuilder:
+    knitr,
+    rmarkdown

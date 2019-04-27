@@ -1,0 +1,22 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+````{r echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "README-"
+)
+
+````
+
+## README
+
+This package contains functions for a Spatial Expression Regression Algorithm (SERA) to infer upon unmeasured spatial patterns of gene expression through the integration of single-cell RNA-seq and sequential fluorescence *in situ* hybridization data.
+
+## Installation
+
+

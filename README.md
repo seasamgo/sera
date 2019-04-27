@@ -7,3 +7,10 @@ This package contains functions for a Spatial Expression Regression Algorithm (S
 
 Installation
 ------------
+
+``` r
+install.packages("devtools", repos="http://cran.rstudio.com/")
+library(devtools)
+devtools::install_github("seasamgo/sera")
+library(sera)
+```

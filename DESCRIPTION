@@ -19,7 +19,7 @@ Imports:
     glmnet,
     ggplot2
 License: GPL-2 | GPL-3
-LazyData: FALSE
+LazyData: true
 URL: https://github.com/seasamgo/sera
 BugReports: http://github.com/seasamgo/sera/issues
 RoxygenNote: 6.1.1

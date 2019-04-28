@@ -101,7 +101,7 @@ predictExpression <- function(
 
   cat('predicting expression \n')
 
-  outcome <- glmnet::predict.glmnet(
+  outcome <- stats::predict(
     object = en_fit,
     s = best_lambda,
     newx = prediction_x
@@ -145,7 +145,12 @@ determineEstimableGenes <- function(
   threshold <- stats::quantile(stdev, probs = quantile_threshold)
   estimable_genes <- predicted_genes[stdev > local_mean & stdev >= threshold]
 
-  return(estimable_genes)
+  results <- list(
+    estimable_genes = estimable_genes,
+    components = data.frame(stdev = stdev, l1norm = l1norm, local_mean = local_mean)
+  )
+
+  return(results)
 
 }
 

@@ -8,7 +8,7 @@ output: github_document
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  fig.path = "README-"
+  fig.path = "man/figures/README-"
 )
 
 ````
@@ -32,7 +32,7 @@ Methods in the `sera` package expect processed cell by gene seqFISH and scRNA-se
 
 1. `quantileNormalize`: ensure statistically similar distributions
 2. `predictExpression`: multi-response elastic net regression
-3. `determineEstimableGenes`: local polynomial regression of estimate variances against the L~1 norm of corresponding model coefficient estimates
+3. `determineEstimableGenes`: local polynomial regression of estimate variances against the $L_1$ norm of corresponding model coefficient estimates
 
 ````{r eval = FALSE}
 quantileNormalize(
@@ -67,7 +67,7 @@ registerDoParallel(10)
 
 ## Example
 
-To illustrate, we'll use published [seqFISH+](https://www.nature.com/articles/s41586-019-1049-y) and [scRNA-seq](https://www.nature.com/articles/nn.4216) data from mouse visual cortex (MVC).
+To illustrate, we'll use published [seqFISH+](https://doi.org/10.1038/s41586-019-1049-y) and [scRNA-seq](https://doi.org/10.1038/nn.4216) data from mouse visual cortex (MVC).
 
 ````{r message = FALSE, warning = FALSE}
 library(Matrix)
@@ -100,7 +100,7 @@ mvc$seqFISHplus$expression <- mvc$seqFISHplus$expression[,c(validation_genes, tr
 mvc$scRNAseq$expression <- mvc$scRNAseq$expression[,c(validation_genes, training_genes)]
 ````
 
-Now apply SERA to estimate our sampled genes using the remaining genes as predictors. First, we quantile-normalize the seqFISH+ genes to the scRNA-seq genes.
+Now to apply SERA to estimate our sampled genes using the remaining genes as predictors. First, we quantile-normalize the seqFISH+ genes to the scRNA-seq genes.
 
 ````{r message = FALSE, warning = FALSE}
 qn_data <- sera::quantileNormalize(
@@ -108,12 +108,7 @@ qn_data <- sera::quantileNormalize(
   scRNAseq_expression = methods::as(mvc$scRNAseq$expression, 'matrix'),
 )
 
-stats::qqplot(
-  qn_data$scRNAseq_expression[,1], 
-  qn_data$seqFISH_expression[,1],
-  xlab = 'scRNA-seq', ylab = 'seqFISH', main = paste(markers[1], 'quantiles')
-)
-abline(a = 0, b = 1, col = 2)
+par(pty = 's'); stats::qqplot(qn_data$scRNAseq_expression[,1], qn_data$seqFISH_expression[,1], xlab = 'scRNA-seq', ylab = 'seqFISH', main = paste(markers[1], 'quantiles')); abline(a = 0, b = 1, col = 2)
 ````
 
 Then estimate gene expression using multi-response elastic net regression. We can select the `alpha` between 0 and 1 to favor either ridge or LASSO regression. As many cell type markers are highly correlated, use a mixture that favors LASSO.
@@ -130,50 +125,24 @@ estimates <- sera::predictExpression(
 Let's see how these estimates compare to the observed expression values.
 
 ````{r message = FALSE, warning = FALSE}
-correlation_score <- data.frame(
-  Correlation = round(diag(cor(estimates$outcome, qn_data$seqFISH_expression[, validation_genes])), 2)
-)
-
-ggplot2::ggplot(data = correlation_score, aes(x = Correlation)) + geom_histogram(binwidth = .2) + ylab('Genes')
+correlation_score <- data.frame(Correlation = round(diag(cor(estimates$outcome, qn_data$seqFISH_expression[, validation_genes])), 3))
+ggplot2::ggplot(data = correlation_score, aes(x = Correlation)) + geom_histogram(binwidth = .1) + ylab('Genes')
 correlation_score[correlation_score$Correlation > .5, , drop = FALSE]
 ````
 
 The Pearson correlation is pretty good for several of the estimated expression vectors. We'll utilize the `pheatmap` package to visualize what's going on.
 
-````{r message = FALSE, warning = FALSE, fig.height = 5, fig.width = 6}
+````{r message = FALSE, warning = FALSE, fig.height = 3.5, fig.width = 6}
 fontsize = 8
 paletteLength = 100
 colors <- colorRampPalette(c("darkblue", 'white', "red"))(paletteLength)
-lower_bound <- -3
-upper_bound <- 3
-breaks <- unique(c(
-  seq(lower_bound, 0, length.out=ceiling(paletteLength/2) + 1),
-  seq(abs(lower_bound)/paletteLength, abs(lower_bound), length.out=floor(paletteLength/2))
-))
+breaks <- unique(c( seq(-3, 0, length.out=ceiling(paletteLength/2) + 1), seq(3/paletteLength, 3, length.out=floor(paletteLength/2))))
 
 ## Observed
-
-ph <- pheatmap::pheatmap(
-  t(qn_data$seqFISH_expression[, validation_genes]), 
-  show_colnames = F, show_rownames = T, 
-  cluster_rows = T, cluster_cols = T,
-  clustering_distance_rows = 'correlation', 
-  clustering_distance_cols = 'correlation',
-  scale = 'none', treeheight_row = 0, treeheight_col = 0, 
-  color = colors, fontsize = fontsize, breaks = breaks
-)
+ph <- pheatmap::pheatmap(t(qn_data$seqFISH_expression[, validation_genes]), show_colnames = F, show_rownames = F, cluster_rows = T, cluster_cols = T, clustering_distance_rows = 'correlation', clustering_distance_cols = 'correlation', scale = 'none', treeheight_row = 0, treeheight_col = 0, color = colors, fontsize = fontsize, breaks = breaks)
 
 ## Estimated
-
-pheatmap::pheatmap(
-  t(estimates$outcome[, validation_genes])[ph$tree_row$order, ph$tree_col$order], 
-  show_colnames = F, show_rownames = T, 
-  cluster_rows = F, cluster_cols = F,
-  clustering_distance_rows = 'correlation', 
-  clustering_distance_cols = 'correlation',
-  scale = 'none', treeheight_row = 0, treeheight_col = 0, 
-  color = colors, fontsize = fontsize, breaks = breaks
-)
+pheatmap::pheatmap(t(estimates$outcome[, validation_genes])[ph$tree_row$order, ph$tree_col$order], show_colnames = F, show_rownames = F, cluster_rows = F, cluster_cols = F, clustering_distance_rows = 'correlation', clustering_distance_cols = 'correlation', scale = 'none', treeheight_row = 0, treeheight_col = 0, color = colors, fontsize = fontsize, breaks = breaks)
 ````
 
 SERA appears to have captured some of the overall expression patterns. Consider filtering the estimates using the third step of SERA.
@@ -185,6 +154,9 @@ decision_rule <- sera::determineEstimableGenes(
   quantile_threshold = .75
 )
 
+decision_rule$estimable_genes
+````
+````{r echo = FALSE, message = FALSE, warning = FALSE}
 decision_rule$components$correlation_score <- correlation_score$Correlation
 threshold = stats::quantile(decision_rule$components$stdev, probs = .75)
 
@@ -193,46 +165,26 @@ ggplot2::ggplot(decision_rule$components, aes(x = l1norm, y = stdev, colour = co
   geom_line(aes(l1norm, local_mean), colour = 'black', lty = 1, size = 1) +
   scale_colour_gradient2(low = "blue", mid = "white", high = "red") +
   ylab('Estimate Std. Dev.') + xlab('L1 Norm of Beta')
-
-decision_rule$estimable_genes
 ````
 
 Nearly all of the well-performing genes were selected according to the decision rule, while still removing most of the poor estimates. Note that SERA was designed to estimate and filter hundreds of genes and this threshold may be adjusted as desired to remove only those with low variation. The filtered results capture much of the overall expression pattern.
 
 ````{r message = FALSE, warning = FALSE, fig.height = 2.5, fig.width = 6}
 ## Observed
-
-ph2 <- pheatmap::pheatmap(
-  t(qn_data$seqFISH_expression[, decision_rule$estimable_genes]), 
-  show_colnames = F, show_rownames = T, 
-  cluster_rows = T, cluster_cols = T,
-  clustering_distance_rows = 'correlation', 
-  clustering_distance_cols = 'correlation',
-  scale = 'none', treeheight_row = 0, treeheight_col = 0, 
-  color = colors, fontsize = fontsize, breaks = breaks
-)
+ph2 <- pheatmap::pheatmap(t(qn_data$seqFISH_expression[, decision_rule$estimable_genes]), show_colnames = F, show_rownames = T, cluster_rows = T, cluster_cols = T, clustering_distance_rows = 'correlation', clustering_distance_cols = 'correlation', scale = 'none', treeheight_row = 0, treeheight_col = 0, color = colors, fontsize = fontsize, breaks = breaks)
 
 ## Estimated
-
-pheatmap::pheatmap(
-  t(estimates$outcome[, decision_rule$estimable_genes])[ph2$tree_row$order, ph2$tree_col$order], 
-  show_colnames = F, show_rownames = T, 
-  cluster_rows = F, cluster_cols = F,
-  clustering_distance_rows = 'correlation', 
-  clustering_distance_cols = 'correlation',
-  scale = 'none', treeheight_row = 0, treeheight_col = 0, 
-  color = colors, fontsize = fontsize, breaks = breaks
-)
+pheatmap::pheatmap(t(estimates$outcome[, decision_rule$estimable_genes])[ph2$tree_row$order, ph2$tree_col$order], show_colnames = F, show_rownames = T, cluster_rows = F, cluster_cols = F, clustering_distance_rows = 'correlation', clustering_distance_cols = 'correlation', scale = 'none', treeheight_row = 0, treeheight_col = 0, color = colors, fontsize = fontsize, breaks = breaks)
 ````
 
 To perform your own analysis, consider predicting domain specific genes and analyze their estimated spatial pattern using the spatial coordinates.
 
-````{r message = FALSE, warning = FALSE, fig.height = 3, fig.width = 6}
+````{r message = FALSE, warning = FALSE}
 summary(mvc$seqFISHplus$spatial)
-
+````
+````{r echo = FALSE, message = FALSE, warning = FALSE, fig.height = 3, fig.width = 10}
 gene_expression <- data.frame(Estimated = estimates$outcome[, 'Hs3st4'], Observed = qn_data$seqFISH_expression[, 'Hs3st4'])
 colours <- c("#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFE9", "#FFFFCF", "#FFEBB6", "#FFD59E", "#FFC084", "#FFAA6C", "#FF9454", "#FF8040", "#FF6A2B", "#FF5215", "#FF3B05", "#FF2100", "#FF0900", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#F70000", "#E10000", "#CF0000", "#B00000", "#900000", "#6E0000", "#4E0000")
-
 Estimated <- data.frame(x = mvc$seqFISHplus$spatial$X, y = mvc$seqFISHplus$spatial$Y, Expression = (gene_expression$Estimated))
 Estimated$Data <- rep('Estimated', length(mvc$seqFISHplus$spatial$X))
 Estimated$Expression <- cut(Estimated$Expression, breaks = c(-10, seq(0, 3, (3+0)/(length(colours)-2)), 10))

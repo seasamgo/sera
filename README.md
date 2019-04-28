@@ -21,7 +21,7 @@ Methods
 Methods in the `sera` package expect processed cell by gene seqFISH and scRNA-seq expression matrices, having been z-score standardized by rows and columns. SERA is implemented in three steps
 
 1.  `quantileNormalize`: ensure statistically similar distributions
-2.  `predictExpression`: multi-response elastic net regression
+2.  `predictExpression`: [multi-response elastic net](https://arxiv.org/abs/1311.6529) regression
 3.  `determineEstimableGenes`: local polynomial regression of estimate variances against the *L*<sub>1</sub> norm of corresponding model coefficient estimates
 
 ``` r
@@ -47,7 +47,7 @@ determineEstimableGenes <- function(
 )
 ```
 
-The `predictExpression` function uses cross-validation implemented in the `glmnet` package to select lambda. Register parallel for this, e.g.
+The `predictExpression` function uses cross-validation implemented by the R package `glmnet` to select lambda. Register parallel for this, e.g.
 
 ``` r
 library(foreach)
@@ -205,14 +205,8 @@ pheatmap::pheatmap(t(estimates$outcome[, decision_rule$estimable_genes])[ph2$tre
 To perform your own analysis, consider predicting domain specific genes and analyze their estimated spatial pattern using the spatial coordinates.
 
 ``` r
-summary(mvc$seqFISHplus$spatial)
-#>  Field.of.View    Cell.ID            X                  Y         
-#>  Min.   :100   Min.   :  1.0   Min.   :-1777.00   Min.   :  40.0  
-#>  1st Qu.:100   1st Qu.:131.5   1st Qu.:   54.77   1st Qu.: 651.4  
-#>  Median :100   Median :262.0   Median : 2193.52   Median :1169.5  
-#>  Mean   :100   Mean   :262.0   Mean   : 2069.21   Mean   :1250.2  
-#>  3rd Qu.:100   3rd Qu.:392.5   3rd Qu.: 4197.05   3rd Qu.:1659.9  
-#>  Max.   :100   Max.   :523.0   Max.   : 5505.12   Max.   :3240.8
+names(mvc$seqFISHplus$spatial)
+#>  [1] "Field.of.View" "Cell.ID"       "X"             "Y"    
 ```
 
 ![](man/figures/README-unnamed-chunk-16-1.png)

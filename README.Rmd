@@ -31,7 +31,7 @@ library(sera)
 Methods in the `sera` package expect processed cell by gene seqFISH and scRNA-seq expression matrices, having been z-score standardized by rows and columns. SERA is implemented in three steps
 
 1. `quantileNormalize`: ensure statistically similar distributions
-2. `predictExpression`: multi-response elastic net regression
+2. `predictExpression`: [multi-response elastic net](https://arxiv.org/abs/1311.6529) regression
 3. `determineEstimableGenes`: local polynomial regression of estimate variances against the $L_1$ norm of corresponding model coefficient estimates
 
 ````{r eval = FALSE}
@@ -180,7 +180,7 @@ pheatmap::pheatmap(t(estimates$outcome[, decision_rule$estimable_genes])[ph2$tre
 To perform your own analysis, consider predicting domain specific genes and analyze their estimated spatial pattern using the spatial coordinates.
 
 ````{r message = FALSE, warning = FALSE}
-summary(mvc$seqFISHplus$spatial)
+names(mvc$seqFISHplus$spatial)
 ````
 ````{r echo = FALSE, message = FALSE, warning = FALSE, fig.height = 3, fig.width = 10}
 gene_expression <- data.frame(Estimated = estimates$outcome[, 'Hs3st4'], Observed = qn_data$seqFISH_expression[, 'Hs3st4'])

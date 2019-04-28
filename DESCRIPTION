@@ -13,11 +13,11 @@ Description: Integrate the expression matrices of seqFISH and scRNA-seq data to 
     coefficient L1 norm and estimate variation threshold.
 Depends:
     R (>= 3.4.0)
+biocViews:
 Imports:
     preprocessCore,
     stats,
-    glmnet,
-    ggplot2
+    glmnet
 License: GPL-2 | GPL-3
 LazyData: true
 URL: https://github.com/seasamgo/sera

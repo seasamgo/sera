@@ -47,7 +47,7 @@ determineEstimableGenes <- function(
 )
 ```
 
-The `predictExpression` function uses cross-validation implemented by the R package `glmnet` to select lambda. Register parallel for this, e.g.
+The `predictExpression` function uses cross-validation implemented in the `glmnet` package to select lambda. Register parallel for this, e.g.
 
 ``` r
 library(foreach)
@@ -66,7 +66,7 @@ library(methods)
 data(mvc)
 summary(mvc)
 #>             Length Class  Mode
-#> seqFISHplus 5      -none- list
+#> seqFISHplus 6      -none- list
 #> scRNAseq    1      -none- list
 ```
 
@@ -83,15 +83,19 @@ To keep this simple, subset the data to marker genes only and randomly sample so
 set.seed(0)
 markers <- as.character(mvc$seqFISHplus$markers$gene)
 markers <- markers[markers%in%colnames(mvc$seqFISHplus$expression)]
-type <- mvc$seqFISHplus$markers$cluster
+cell_type <- mvc$seqFISHplus$markers$cluster
+domain_genes <- as.character(mvc$seqFISHplus$domain$gene)
+domain_genes <- domain_genes[domain_genes%in%colnames(mvc$seqFISHplus$expression)]
+domain_type <- mvc$seqFISHplus$domain$domain
+all_specific <- c(markers, domain_genes)
 validation_genes <- c()
-for(i in unique(type))
-  validation_genes <- c(validation_genes, sample(markers[type == i], size = 2))
-training_genes <- markers[!markers %in% validation_genes]
-validation_genes <- c(validation_genes, sample(mvc$seqFISHplus$genes[!mvc$seqFISHplus$genes%in%validation_genes], size = 50))
+for(i in unique(cell_type)) validation_genes <- c(validation_genes, sample(markers[cell_type == i], size = 2))
+for(i in unique(domain_type)) validation_genes <- c(validation_genes, sample(domain_genes[domain_type == i], size = 2))
+training_genes <- all_specific[!all_specific %in% validation_genes]
+validation_genes <- c(validation_genes, sample(mvc$seqFISHplus$genes[!mvc$seqFISHplus$genes%in%validation_genes], size = 100))
 
-mvc$seqFISHplus$expression <- mvc$seqFISHplus$expression[,c(validation_genes, training_genes)]
-mvc$scRNAseq$expression <- mvc$scRNAseq$expression[,c(validation_genes, training_genes)]
+mvc$seqFISHplus$expression <- mvc$seqFISHplus$expression[, c(validation_genes, training_genes)]
+mvc$scRNAseq$expression <- mvc$scRNAseq$expression[, c(validation_genes, training_genes)]
 ```
 
 Now to apply SERA to estimate our sampled genes using the remaining genes as predictors. First, we quantile-normalize the seqFISH+ genes to the scRNA-seq genes.
@@ -133,17 +137,18 @@ ggplot2::ggplot(data = correlation_score, aes(x = Correlation)) + geom_histogram
 ``` r
 correlation_score[correlation_score$Correlation > .5, , drop = FALSE]
 #>          Correlation
-#> Hs3st4         0.511
-#> Zfp385a        0.600
-#> Acsbg1         0.683
-#> Gja1           0.802
-#> Slc27a1        0.573
-#> Gsn            0.588
-#> Arhgef10       0.591
-#> Pld4           0.913
-#> Fgfr3          0.997
-#> Klhl5          0.999
-#> S1pr1          0.940
+#> Hs3st4         0.527
+#> Zfp385a        0.594
+#> Acsbg1         0.654
+#> Gja1           0.775
+#> Slc27a1        0.516
+#> Gsn            0.534
+#> Arhgef10       0.576
+#> Kcnab2         0.554
+#> Lynx1          0.708
+#> Atp1a1         0.602
+#> Ephb6          0.998
+#> S1pr1          0.888
 ```
 
 The Pearson correlation is pretty good for several of the estimated expression vectors. We'll utilize the `pheatmap` package to visualize what's going on.
@@ -178,9 +183,12 @@ decision_rule <- sera::determineEstimableGenes(
 )
 
 decision_rule$estimable_genes
-#>  [1] "She"      "Hs3st4"   "Vamp1"    "Kcnab3"   "Olfml3"   "Cx3cr1"  
-#>  [7] "Acsbg1"   "Gja1"     "Vcan"     "Matn4"    "Gsn"      "Arhgef10"
-#> [13] "Pld4"     "Tspan2"   "Lyn"      "Fgfr3"    "Klhl5"    "S1pr1"
+#>  [1] "She"      "Cacna1e"  "Hs3st4"   "Vamp1"    "Kcnab3"   "Olfml3"  
+#>  [7] "Cx3cr1"   "Acsbg1"   "Gja1"     "Slc27a1"  "Vcan"     "Matn4"   
+#> [13] "Gsn"      "Arhgef10" "Kif5a"    "Lynx1"    "Boc"      "Atp1a1"  
+#> [19] "Cacng3"   "Sphkap"   "Ephb6"    "Igsf11"   "Lbh"      "Lmtk2"   
+#> [25] "Elovl7"   "S1pr1"    "Igfbp6"   "Limch1"   "Kirrel2"  "Ppp1r3c" 
+#> [31] "Wnt7a"    "Nap1l5"
 ```
 
 ![](man/figures/README-unnamed-chunk-13-1.png)
@@ -202,11 +210,18 @@ pheatmap::pheatmap(t(estimates$outcome[, decision_rule$estimable_genes])[ph2$tre
 
 ![](man/figures/README-unnamed-chunk-14-2.png)
 
+We also see that most of the selected genes are cell-type or domain-specific.
+
+``` r
+paste0(mean(decision_rule$estimable_genes %in% c(markers, domain_genes))*100, '%')
+#> [1] "68.75%"
+```
+
 To perform your own analysis, consider predicting domain specific genes and analyze their estimated spatial pattern using the spatial coordinates.
 
 ``` r
 names(mvc$seqFISHplus$spatial)
-#>  [1] "Field.of.View" "Cell.ID"       "X"             "Y"    
+#> [1] "Field.of.View" "Cell.ID"       "X"             "Y"
 ```
 
-![](man/figures/README-unnamed-chunk-16-1.png)
+![](man/figures/README-unnamed-chunk-17-1.png)![](man/figures/README-unnamed-chunk-17-2.png)![](man/figures/README-unnamed-chunk-17-3.png)

@@ -89,15 +89,19 @@ To keep this simple, subset the data to marker genes only and randomly sample so
 set.seed(0)
 markers <- as.character(mvc$seqFISHplus$markers$gene)
 markers <- markers[markers%in%colnames(mvc$seqFISHplus$expression)]
-type <- mvc$seqFISHplus$markers$cluster
+cell_type <- mvc$seqFISHplus$markers$cluster
+domain_genes <- as.character(mvc$seqFISHplus$domain$gene)
+domain_genes <- domain_genes[domain_genes%in%colnames(mvc$seqFISHplus$expression)]
+domain_type <- mvc$seqFISHplus$domain$domain
+all_specific <- c(markers, domain_genes)
 validation_genes <- c()
-for(i in unique(type))
-  validation_genes <- c(validation_genes, sample(markers[type == i], size = 2))
-training_genes <- markers[!markers %in% validation_genes]
-validation_genes <- c(validation_genes, sample(mvc$seqFISHplus$genes[!mvc$seqFISHplus$genes%in%validation_genes], size = 50))
+for(i in unique(cell_type)) validation_genes <- c(validation_genes, sample(markers[cell_type == i], size = 2))
+for(i in unique(domain_type)) validation_genes <- c(validation_genes, sample(domain_genes[domain_type == i], size = 2))
+training_genes <- all_specific[!all_specific %in% validation_genes]
+validation_genes <- c(validation_genes, sample(mvc$seqFISHplus$genes[!mvc$seqFISHplus$genes%in%validation_genes], size = 100))
 
-mvc$seqFISHplus$expression <- mvc$seqFISHplus$expression[,c(validation_genes, training_genes)]
-mvc$scRNAseq$expression <- mvc$scRNAseq$expression[,c(validation_genes, training_genes)]
+mvc$seqFISHplus$expression <- mvc$seqFISHplus$expression[, c(validation_genes, training_genes)]
+mvc$scRNAseq$expression <- mvc$scRNAseq$expression[, c(validation_genes, training_genes)]
 ````
 
 Now to apply SERA to estimate our sampled genes using the remaining genes as predictors. First, we quantile-normalize the seqFISH+ genes to the scRNA-seq genes.
@@ -177,6 +181,12 @@ ph2 <- pheatmap::pheatmap(t(qn_data$seqFISH_expression[, decision_rule$estimable
 pheatmap::pheatmap(t(estimates$outcome[, decision_rule$estimable_genes])[ph2$tree_row$order, ph2$tree_col$order], show_colnames = F, show_rownames = T, cluster_rows = F, cluster_cols = F, clustering_distance_rows = 'correlation', clustering_distance_cols = 'correlation', scale = 'none', treeheight_row = 0, treeheight_col = 0, color = colors, fontsize = fontsize, breaks = breaks)
 ````
 
+We also see that most of the selected genes are cell-type or domain-specific.
+
+````{r message = FALSE, warning = FALSE, fig.height = 2.5, fig.width = 6}
+paste0(mean(decision_rule$estimable_genes %in% c(markers, domain_genes))*100, '%')
+````
+
 To perform your own analysis, consider predicting domain specific genes and analyze their estimated spatial pattern using the spatial coordinates.
 
 ````{r message = FALSE, warning = FALSE}
@@ -201,4 +211,42 @@ Observed$Data <- rep('Observed', length(mvc$seqFISHplus$spatial$X))
 Observed$Expression <- cut(Observed$Expression, breaks = c(-10, seq(0, 3, (3+0)/(length(colours)-2)), 10))
   
 ggplot(data = rbind(Estimated, Scaled, Observed)) + geom_point(aes(x = x, y = y, colour = Expression), size = 1.5) + scale_color_manual(values = colours) + ggtitle('Hs3st4') + facet_wrap(~Data, nrow = 1) + theme(legend.position="none")
+
+gene_expression <- data.frame(Estimated = estimates$outcome[, 'Kcnab2'], Observed = qn_data$seqFISH_expression[, 'Kcnab2'])
+colours <- c("#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFE9", "#FFFFCF", "#FFEBB6", "#FFD59E", "#FFC084", "#FFAA6C", "#FF9454", "#FF8040", "#FF6A2B", "#FF5215", "#FF3B05", "#FF2100", "#FF0900", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#F70000", "#E10000", "#CF0000", "#B00000", "#900000", "#6E0000", "#4E0000")
+Estimated <- data.frame(x = mvc$seqFISHplus$spatial$X, y = mvc$seqFISHplus$spatial$Y, Expression = (gene_expression$Estimated))
+Estimated$Data <- rep('Estimated', length(mvc$seqFISHplus$spatial$X))
+Estimated$Expression <- cut(Estimated$Expression, breaks = c(-10, seq(0, 3, (3+0)/(length(colours)-2)), 10))
+
+rescale <- function(x, max_new = 101, min_new = 0){ max_old <- max(x); min_old = min(x); v <- (max_new-min_new)/(max_old-min_old)*(x-max_old)+max_new; return(round(v))}
+gene_expression$rescaled <- gene_expression$Estimated
+gene_expression$rescaled[gene_expression$rescaled > 0 ] <- rescale(gene_expression$rescaled[gene_expression$rescaled > 0 ], max_new = max(gene_expression$Observed))
+Scaled <- data.frame(x = mvc$seqFISHplus$spatial$X, y = mvc$seqFISHplus$spatial$Y, Expression = gene_expression$rescaled)
+Scaled$Data <- rep('Estimated (scaled)', length(mvc$seqFISHplus$spatial$X))
+Scaled$Expression <- cut(Scaled$Expression, breaks = c(-10, seq(0, 3, (3+0)/(length(colours)-2)), 10))
+  
+Observed <- data.frame(x = mvc$seqFISHplus$spatial$X, y = mvc$seqFISHplus$spatial$Y, Expression = (gene_expression$Observed))
+Observed$Data <- rep('Observed', length(mvc$seqFISHplus$spatial$X))
+Observed$Expression <- cut(Observed$Expression, breaks = c(-10, seq(0, 3, (3+0)/(length(colours)-2)), 10))
+  
+ggplot(data = rbind(Estimated, Scaled, Observed)) + geom_point(aes(x = x, y = y, colour = Expression), size = 1.5) + scale_color_manual(values = colours) + ggtitle('Kcnab2') + facet_wrap(~Data, nrow = 1) + theme(legend.position="none")
+
+gene_expression <- data.frame(Estimated = estimates$outcome[, 'Ephb6'], Observed = qn_data$seqFISH_expression[, 'Ephb6'])
+colours <- c("#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFE9", "#FFFFCF", "#FFEBB6", "#FFD59E", "#FFC084", "#FFAA6C", "#FF9454", "#FF8040", "#FF6A2B", "#FF5215", "#FF3B05", "#FF2100", "#FF0900", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#F70000", "#E10000", "#CF0000", "#B00000", "#900000", "#6E0000", "#4E0000")
+Estimated <- data.frame(x = mvc$seqFISHplus$spatial$X, y = mvc$seqFISHplus$spatial$Y, Expression = (gene_expression$Estimated))
+Estimated$Data <- rep('Estimated', length(mvc$seqFISHplus$spatial$X))
+Estimated$Expression <- cut(Estimated$Expression, breaks = c(-10, seq(0, 3, (3+0)/(length(colours)-2)), 10))
+
+rescale <- function(x, max_new = 101, min_new = 0){ max_old <- max(x); min_old = min(x); v <- (max_new-min_new)/(max_old-min_old)*(x-max_old)+max_new; return(round(v))}
+gene_expression$rescaled <- gene_expression$Estimated
+gene_expression$rescaled[gene_expression$rescaled > 0 ] <- rescale(gene_expression$rescaled[gene_expression$rescaled > 0 ], max_new = max(gene_expression$Observed))
+Scaled <- data.frame(x = mvc$seqFISHplus$spatial$X, y = mvc$seqFISHplus$spatial$Y, Expression = gene_expression$rescaled)
+Scaled$Data <- rep('Estimated (scaled)', length(mvc$seqFISHplus$spatial$X))
+Scaled$Expression <- cut(Scaled$Expression, breaks = c(-10, seq(0, 3, (3+0)/(length(colours)-2)), 10))
+  
+Observed <- data.frame(x = mvc$seqFISHplus$spatial$X, y = mvc$seqFISHplus$spatial$Y, Expression = (gene_expression$Observed))
+Observed$Data <- rep('Observed', length(mvc$seqFISHplus$spatial$X))
+Observed$Expression <- cut(Observed$Expression, breaks = c(-10, seq(0, 3, (3+0)/(length(colours)-2)), 10))
+  
+ggplot(data = rbind(Estimated, Scaled, Observed)) + geom_point(aes(x = x, y = y, colour = Expression), size = 1.5) + scale_color_manual(values = colours) + ggtitle('Ephb6') + facet_wrap(~Data, nrow = 1) + theme(legend.position="none")
 ````
